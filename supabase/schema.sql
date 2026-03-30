@@ -15,14 +15,28 @@ create table services (
   rate numeric not null
 );
 
+-- Create schedules table
+create table schedules (
+  id uuid primary key default uuid_generate_v4(),
+  pickup_date date not null,
+  pickup_slot text not null,
+  delivery_date date not null,
+  delivery_slot text not null,
+  status text check (status in ('upcoming', 'active', 'completed')) default 'upcoming',
+  created_at timestamp with time zone default now()
+);
+
 -- Create orders table
 create table orders (
   id uuid primary key default uuid_generate_v4(),
   customer_id uuid references profiles(id) not null,
-  status text check (status in ('pending', 'picked_up', 'in_progress', 'delivered')) default 'pending',
+  status text check (status in ('pending', 'confirmed', 'processing', 'delivered')) default 'pending',
   items jsonb, -- e.g. [{"type": "shirt", "quantity": 2}]
   services jsonb, -- e.g. ["iron", "wash"]
   total_cost numeric,
+  payment_status text check (payment_status in ('unpaid', 'paid')) default 'unpaid',
+  schedule_id uuid references schedules(id),
+  is_urgent boolean default false,
   delivery_preferences text, -- e.g. "lobby", "doorstep"
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
@@ -31,6 +45,7 @@ create table orders (
 -- Enable Row Level Security (RLS)
 alter table profiles enable row level security;
 alter table orders enable row level security;
+alter table schedules enable row level security;
 alter table services enable row level security;
 
 -- Policies for profiles
@@ -59,6 +74,30 @@ create policy "Customers can insert orders." on orders
   for insert with check (auth.uid() = customer_id);
 
 create policy "Laundry guys can update orders." on orders
+  for update using (
+    exists (
+      select 1 from profiles
+      where profiles.id = auth.uid() and profiles.role = 'laundry_guy'
+    )
+  );
+
+create policy "Customers can update payment on their own delivered orders." on orders
+  for update using (auth.uid() = customer_id)
+  with check (auth.uid() = customer_id);
+
+-- Policies for schedules
+create policy "Everyone can view schedules." on schedules
+  for select using (true);
+
+create policy "Laundry guys can insert schedules." on schedules
+  for insert with check (
+    exists (
+      select 1 from profiles
+      where profiles.id = auth.uid() and profiles.role = 'laundry_guy'
+    )
+  );
+
+create policy "Laundry guys can update schedules." on schedules
   for update using (
     exists (
       select 1 from profiles

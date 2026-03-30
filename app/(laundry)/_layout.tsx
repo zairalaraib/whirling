@@ -1,10 +1,10 @@
 import { Stack } from 'expo-router';
+import { AuthProvider } from '../../components/AuthProvider';
 
 export default function LaundryLayout() {
     return (
-        <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="dashboard" />
-            <Stack.Screen name="order-details" options={{ headerShown: true, title: 'Manage Order' }} />
-        </Stack>
+        <AuthProvider>
+            <Stack screenOptions={{ headerShown: false }} />
+        </AuthProvider>
     );
 }

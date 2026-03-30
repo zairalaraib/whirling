@@ -1,80 +1,104 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { Link, useRouter } from 'expo-router';
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
 export default function SignIn() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const router = useRouter();
 
-    async function signInWithEmail() {
+    const handleSignIn = async () => {
+        if (!email || !password) {
+            Alert.alert('Missing info', 'Please enter your email and password.');
+            return;
+        }
         setLoading(true);
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-
+        const { error, data } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-            Alert.alert('Error', error.message);
+            Alert.alert('Sign In Failed', error.message);
+            setLoading(false);
+            return;
+        }
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', data.user.id)
+            .single();
+
+        if (profile?.role === 'admin') {
+            router.replace('/(admin)/dashboard');
+        } else if (profile?.role === 'laundry_guy') {
+            router.replace('/(laundry)/dashboard');
         } else {
-            // Navigate to index which will handle the redirect based on role
-            router.replace('/');
+            router.replace('/(customer)/home');
         }
         setLoading(false);
-    }
+    };
 
     return (
-        <View className="flex-1 justify-center p-6 bg-slate-50">
-            <View className="mb-8">
-                <Text className="text-3xl font-bold text-slate-900 mb-2">Welcome Back</Text>
-                <Text className="text-slate-600">Sign in to manage your laundry</Text>
-            </View>
+        <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+            <ScrollView contentContainerStyle={{ flexGrow: 1 }} className="bg-white">
+                <View className="flex-1 px-6 pt-24 pb-10">
+                    {/* Header */}
+                    <View className="mb-10">
+                        <Text className="text-4xl font-bold text-slate-900">Welcome back</Text>
+                        <Text className="text-slate-500 mt-2 text-base">Sign in to Whirling</Text>
+                    </View>
 
-            <View className="space-y-4">
-                <View>
-                    <Text className="text-sm font-medium text-slate-700 mb-1">Email</Text>
-                    <TextInput
-                        onChangeText={setEmail}
-                        value={email}
-                        placeholder="email@address.com"
-                        autoCapitalize="none"
-                        className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900"
-                    />
+                    {/* Fields */}
+                    <View className="mb-4">
+                        <Text className="text-sm font-medium text-slate-700 mb-1">Email</Text>
+                        <TextInput
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="you@example.com"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            className="border border-slate-200 rounded-xl px-4 py-3 bg-slate-50 text-slate-900"
+                        />
+                    </View>
+
+                    <View className="mb-8">
+                        <Text className="text-sm font-medium text-slate-700 mb-1">Password</Text>
+                        <TextInput
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="••••••••"
+                            secureTextEntry
+                            className="border border-slate-200 rounded-xl px-4 py-3 bg-slate-50 text-slate-900"
+                        />
+                    </View>
+
+                    <TouchableOpacity
+                        onPress={handleSignIn}
+                        disabled={loading}
+                        className="bg-indigo-600 py-4 rounded-2xl mb-4"
+                    >
+                        <Text className="text-white text-center font-bold text-lg">
+                            {loading ? 'Signing in...' : 'Sign In'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')}>
+                        <Text className="text-center text-slate-500">
+                            Don't have an account?{' '}
+                            <Text className="text-indigo-600 font-semibold">Sign Up</Text>
+                        </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={() => router.push('/(auth)/admin-sign-in')}
+                        className="mt-12"
+                    >
+                        <Text className="text-center text-slate-300 text-xs">Admin Login</Text>
+                    </TouchableOpacity>
                 </View>
-
-                <View>
-                    <Text className="text-sm font-medium text-slate-700 mb-1">Password</Text>
-                    <TextInput
-                        onChangeText={setPassword}
-                        value={password}
-                        placeholder="Password"
-                        secureTextEntry
-                        autoCapitalize="none"
-                        className="w-full bg-white border border-slate-300 rounded-lg p-3 text-slate-900"
-                    />
-                </View>
-
-                <TouchableOpacity
-                    onPress={signInWithEmail}
-                    disabled={loading}
-                    className={`w-full py-4 rounded-xl mt-4 ${loading ? 'bg-indigo-400' : 'bg-indigo-600'}`}
-                >
-                    <Text className="text-white text-center font-bold text-lg">
-                        {loading ? 'Signing in...' : 'Sign In'}
-                    </Text>
-                </TouchableOpacity>
-
-                <View className="flex-row justify-center mt-4">
-                    <Text className="text-slate-600">Don't have an account? </Text>
-                    <Link href="/(auth)/sign-up" asChild>
-                        <TouchableOpacity>
-                            <Text className="text-indigo-600 font-bold">Sign Up</Text>
-                        </TouchableOpacity>
-                    </Link>
-                </View>
-            </View>
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 }

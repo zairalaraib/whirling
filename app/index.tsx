@@ -1,25 +1,34 @@
-import { Redirect } from 'expo-router';
-import { useAuth } from '../components/AuthProvider';
+import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
+import { router } from 'expo-router';
+import { supabase } from '../lib/supabase';
 
 export default function Index() {
-    const { session, loading, profile } = useAuth();
+    useEffect(() => {
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
+            if (!session) {
+                router.replace('/(auth)/sign-in');
+                return;
+            }
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
 
-    if (loading) {
-        return (
-            <View className="flex-1 justify-center items-center bg-white">
-                <ActivityIndicator size="large" color="#4F46E5" />
-            </View>
-        );
-    }
+            if (profile?.role === 'admin') {
+                router.replace('/(admin)/dashboard');
+            } else if (profile?.role === 'laundry_guy') {
+                router.replace('/(laundry)/dashboard');
+            } else {
+                router.replace('/(customer)/home');
+            }
+        });
+    }, []);
 
-    if (!session) {
-        return <Redirect href="/(auth)/sign-in" />;
-    }
-
-    if (profile?.role === 'laundry_guy') {
-        return <Redirect href="/(laundry)/dashboard" />;
-    }
-
-    return <Redirect href="/(customer)/home" />;
+    return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+            <ActivityIndicator size="large" color="#4f46e5" />
+        </View>
+    );
 }

@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Session, User } from '@supabase/supabase-js'
+import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
 
 type Profile = {
     id: string
     role: 'customer' | 'laundry_guy'
     full_name: string | null
+    address: string | null
 }
 
 type AuthContextType = {
@@ -82,6 +84,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setSession(null)
             setUser(null)
             setProfile(null)
+            router.replace('/(auth)/sign-in')
         }
     }
 
