@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, RefreshControl, Alert } from 
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../components/AuthProvider';
-import { Plus, LogOut, Zap, Clock, Calendar } from 'lucide-react-native';
+import { Plus, LogOut, Zap, Clock, Calendar, TrendingUp } from 'lucide-react-native';
 
 const TIME_SLOT_LABELS: Record<string, string> = {
     '08:00-11:00': '8:00 AM – 11:00 AM',
@@ -37,7 +37,6 @@ export default function LaundryDashboard() {
             supabase
                 .from('orders')
                 .select('*, profiles(full_name)')
-                .order('is_urgent', { ascending: false })
                 .order('created_at', { ascending: false }),
         ]);
         if (sched) setSchedule(sched);
@@ -60,14 +59,6 @@ export default function LaundryDashboard() {
         ]);
     };
 
-    // Group orders by delivery address
-    const grouped: Record<string, any[]> = {};
-    orders.forEach((order) => {
-        const addr = order.items?.address || 'Unknown Address';
-        if (!grouped[addr]) grouped[addr] = [];
-        grouped[addr].push(order);
-    });
-
     return (
         <ScrollView
             className="flex-1 bg-slate-50"
@@ -77,6 +68,12 @@ export default function LaundryDashboard() {
             <View className="flex-row items-center justify-between px-6 pt-14 pb-4">
                 <Text className="text-2xl font-bold text-slate-900">Dashboard</Text>
                 <View className="flex-row gap-3">
+                    <TouchableOpacity
+                        onPress={() => router.push('/(laundry)/analytics')}
+                        className="w-10 h-10 rounded-full bg-emerald-100 items-center justify-center"
+                    >
+                        <TrendingUp size={18} color="#059669" />
+                    </TouchableOpacity>
                     <TouchableOpacity
                         onPress={() => router.push('/(laundry)/create-schedule')}
                         className="w-10 h-10 rounded-full bg-indigo-600 items-center justify-center"
@@ -133,55 +130,54 @@ export default function LaundryDashboard() {
                 )}
 
                 {/* Orders */}
-                <Text className="text-lg font-bold text-slate-900 mb-3">
-                    Orders ({orders.length})
-                </Text>
+                <View className="flex-row items-center justify-between mb-3">
+                    <Text className="text-lg font-bold text-slate-900">
+                        Recent Orders ({orders.length})
+                    </Text>
+                    <Text className="text-xs font-medium text-slate-400">Newest first</Text>
+                </View>
 
                 {orders.length === 0 ? (
                     <View className="bg-white rounded-2xl p-6 items-center">
                         <Text className="text-slate-400">No orders yet.</Text>
                     </View>
                 ) : (
-                    Object.entries(grouped).map(([address, groupOrders]) => (
-                        <View key={address} className="mb-5">
-                            <Text className="text-xs font-bold text-indigo-600 uppercase mb-2 px-1">
-                                {address}
-                            </Text>
-                            {groupOrders.map((order) => {
-                                const s = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
-                                return (
-                                    <TouchableOpacity
-                                        key={order.id}
-                                        onPress={() => router.push({ pathname: '/(laundry)/order-details', params: { id: order.id } })}
-                                        className="bg-white rounded-2xl p-4 mb-2 shadow-sm"
-                                    >
-                                        <View className="flex-row items-center justify-between mb-2">
-                                            <Text className="font-semibold text-slate-800">
-                                                {order.profiles?.full_name || 'Customer'}
-                                            </Text>
-                                            <View className="flex-row gap-2">
-                                                {order.is_urgent && (
-                                                    <View className="flex-row items-center bg-red-100 px-2 py-0.5 rounded-full">
-                                                        <Zap size={10} color="#ef4444" />
-                                                        <Text className="text-red-600 text-xs font-bold ml-1">URGENT</Text>
-                                                    </View>
-                                                )}
-                                                <View className={`px-2 py-0.5 rounded-full ${s.bg}`}>
-                                                    <Text className={`text-xs font-bold ${s.text}`}>{s.label}</Text>
-                                                </View>
+                    orders.map((order) => {
+                        const s = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+                        return (
+                            <TouchableOpacity
+                                key={order.id}
+                                onPress={() => router.push({ pathname: '/(laundry)/order-details', params: { id: order.id } })}
+                                className="bg-white rounded-2xl p-4 mb-3 shadow-sm"
+                            >
+                                <View className="flex-row items-center justify-between mb-2">
+                                    <Text className="font-semibold text-slate-800">
+                                        {order.profiles?.full_name || 'Customer'}
+                                    </Text>
+                                    <View className="flex-row gap-2">
+                                        {order.is_urgent && (
+                                            <View className="flex-row items-center bg-red-100 px-2 py-0.5 rounded-full">
+                                                <Zap size={10} color="#ef4444" />
+                                                <Text className="text-red-600 text-xs font-bold ml-1">URGENT</Text>
                                             </View>
+                                        )}
+                                        <View className={`px-2 py-0.5 rounded-full ${s.bg}`}>
+                                            <Text className={`text-xs font-bold ${s.text}`}>{s.label}</Text>
                                         </View>
-                                        <Text className="text-slate-500 text-sm">
-                                            {order.items?.quantity || 0} pcs · {(order.services || []).join(', ')}
-                                        </Text>
-                                        <Text className="text-slate-400 text-xs mt-1">
-                                            ₹{order.total_cost} · {order.delivery_preferences}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    ))
+                                    </View>
+                                </View>
+                                <Text className="text-slate-500 text-sm">
+                                    {order.items?.quantity || 0} pcs · {(order.services || []).join(', ')}
+                                </Text>
+                                <Text className="text-slate-500 text-sm mt-1">
+                                    {order.items?.address || 'Unknown Address'}
+                                </Text>
+                                <Text className="text-slate-400 text-xs mt-1">
+                                    ₹{order.total_cost} · {order.delivery_preferences} · {new Date(order.created_at).toLocaleDateString('en-IN')}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })
                 )}
                 <View className="h-8" />
             </View>
